@@ -31,7 +31,7 @@ exporters:
   otlphttp/newrelic:
     endpoint: https://otlp.nr-data.net:4317
     headers:
-      api-key: "d1f0c43fe27c1e30bc858a947f4b2da8FFFFNRAL" # joban new relic account
+      api-key: "5b3c738c91170cdd1febd7d1865a243bFFFFNRAL"
 #    compression: gzip
 #    compression: "gzip"
 #    tls:
