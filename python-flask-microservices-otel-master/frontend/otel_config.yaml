@@ -1,0 +1,59 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  # kafkametrics:
+  #   brokers: kafka:9092
+  #   protocol_version: 2.0.0
+  #   scrapers:
+  #     - brokers
+  #     - topics
+  #     - consumers
+  # jmx/kafka:
+  #   jar_path: /otel/opentelemetry-jmx-metrics.jar
+#    interval: 10s
+    # target_system: kafka
+    # endpoint: service:jmx:rmi:///jndi/rmi://kafka:9999/jmxrmi
+#    metric_prefix: jmx.kafka
+#    collection_interval: 10s
+
+# processors:
+#   metricstransform/jmx:
+#     transforms:
+#       - include: .*
+#         match_type: regexp
+#         action: update
+#         new_name: jmx_${metric}
+exporters:
+  otlphttp/newrelic:
+    endpoint: https://otlp.nr-data.net:4317
+    headers:
+      api-key: "d1f0c43fe27c1e30bc858a947f4b2da8FFFFNRAL" # joban new relic account
+#    compression: gzip
+#    compression: "gzip"
+#    tls:
+#      insecure: false
+
+
+  debug:
+    verbosity: detailed
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlphttp/newrelic, debug]
+    # metrics/jmx:
+    #   receivers: [jmx/kafka]
+    #   processors: [metricstransform/jmx]
+    #   exporters: [otlphttp/newrelic, debug]
+    metrics/other:
+      # receivers: [otlp, kafkametrics]
+      receivers: [otlp]
+      exporters: [otlphttp/newrelic, debug]
+    logs:
+      receivers: [otlp]
+      exporters: [otlphttp/newrelic, debug]
+ 

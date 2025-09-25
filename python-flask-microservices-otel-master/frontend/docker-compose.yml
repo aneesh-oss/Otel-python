@@ -1,0 +1,185 @@
+
+volumes:
+  userdb_vol:
+  productdb_vol:
+  orderdb_vol:
+
+networks:
+  micro_network:
+    name: micro_network
+
+services:
+  user-api:
+    container_name: cuser-service
+    build:
+      context: ../user-service
+    environment:
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://opentelemetry-collector:4317/v1/traces
+      - OTEL_SERVICE_NAME=user-api
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://opentelemetry-collector:4317
+      - OTEL_PYTHON_LOG_CORRELATION=true
+      - OTEL_PYTHON_LOG_FORMAT="%(msg)s [span_id=%(span_id)s]"
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_PYTHON_LOG_LEVEL=debug
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+    ports:
+    - "5001:5001"
+    depends_on:
+      - user-db
+    networks:
+      - micro_network
+    restart: always
+
+  user-db:
+    container_name: cuser_dbase
+    image: mysql:8
+    ports:
+    - "32000:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: pfm_dc_2020
+      MYSQL_DATABASE: user
+      MYSQL_USER: cloudacademy
+      MYSQL_PASSWORD: pfm_2020
+    networks:
+      - micro_network
+    volumes:
+    - userdb_vol:/var/lib/mysql
+
+  product-api:
+    container_name: cproduct-service
+    build:
+      context: ../product-service
+    environment:
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://opentelemetry-collector:4317/v1/traces
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://opentelemetry-collector:4317
+      - OTEL_PYTHON_LOG_CORRELATION=true
+      - OTEL_PYTHON_LOG_FORMAT="%(msg)s [span_id=%(span_id)s]"
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_PYTHON_LOG_LEVEL=debug
+      - OTEL_SERVICE_NAME=product-api
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+    ports:
+    - "5002:5002"
+    depends_on:
+      - product-db
+    networks:
+      - micro_network
+    restart: always
+
+  product-db:
+    container_name: cproduct_dbase
+    image: mysql:8
+    ports:
+    - "32001:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: pfm_dc_2020
+      MYSQL_DATABASE: product
+      MYSQL_USER: cloudacademy
+      MYSQL_PASSWORD: pfm_2020
+    networks:
+      - micro_network
+    volumes:
+    - productdb_vol:/var/lib/mysql
+
+  order-api:
+    container_name: corder-service
+    build:
+      context: ../order-service
+    environment:
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://opentelemetry-collector:4317/v1/traces
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://opentelemetry-collector:4317
+      - OTEL_PYTHON_LOG_CORRELATION=true
+      - OTEL_PYTHON_LOG_FORMAT="%(msg)s [span_id=%(span_id)s]"
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_PYTHON_LOG_LEVEL=debug
+      - OTEL_SERVICE_NAME=order-api
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp,console
+    ports:
+    - "5003:5003"
+    depends_on:
+      - order-db
+    networks:
+      - micro_network
+    restart: always
+
+  order-db:
+    container_name: corder_dbase
+    image: mysql:8
+    ports:
+    - "32002:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: pfm_dc_2020
+      MYSQL_DATABASE: order
+      MYSQL_USER: cloudacademy
+      MYSQL_PASSWORD: pfm_2020
+    networks:
+      - micro_network
+    volumes:
+    - orderdb_vol:/var/lib/mysql
+  
+  opentelemetry-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: opentelemetry-collector
+    deploy:
+      resources:
+        limits:
+          memory: 125M
+    restart: unless-stopped
+    volumes:
+      #Override the image's default collector config
+      - ./otel_config.yaml:/etc/otelcol-contrib/config.yaml
+      # - ./otel/opentelemetry-jmx-metrics.jar:/otel/opentelemetry-jmx-metrics.jar
+      # - ./otel/tmp:/tmp
+#      - ./otel/opentelemetry-jmx-metrics.jar:/otel/opentelemetry-jmx-metrics.jar
+    ports:
+      - "4318:4318"   #OTEL gRPC
+      - "4317:4317"   #OTEL HTTP
+      - "8888:8888"   #Opentelemetry-collector metrics
+      - "8889:8889"   #Prometheus exporter
+      - "13133:13133" # Health check
+    networks:
+      - micro_network
+
+  frontend-app:
+    container_name: cfrontend-app
+    build:
+      context: .
+    environment:
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://opentelemetry-collector:4317/v1/traces
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://opentelemetry-collector:4317
+      - OTEL_SERVICE_NAME=frontend-app
+      - OTEL_PYTHON_LOG_CORRELATION=true
+      - OTEL_PYTHON_LOG_FORMAT="%(msg)s [span_id=%(span_id)s]"
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_PYTHON_LOG_LEVEL=debug
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp,console
+      - OTEL_METRICS_EXPORTER=otlp
+    ports:
+    - "5000:5000"
+    networks:
+      - micro_network
+    restart: always
+  
+  mysql-workbench:
+    image: lscr.io/linuxserver/mysql-workbench:latest
+    container_name: mysql-workbench
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /path/to/config:/config
+    ports:
+      - 3000:3000
+      - 3001:3001
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - micro_network
